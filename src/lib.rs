@@ -68,7 +68,6 @@ extern crate futures;
 extern crate glob;
 extern crate infer;
 extern crate serde_json;
-extern crate surf;
 
 use std::env;
 use std::fmt;
@@ -78,11 +77,9 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use futures::future;
-use serde_json::json;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
-use scraper::{Html, Selector};
 
 use reqwest;
 use tokio;
@@ -802,37 +799,6 @@ async fn download_image(
     };
 
     Ok(with_extension)
-}
-
-pub(crate) fn build_url(args: &Arguments) -> String {
-    let mut url = format!("https://www.google.com/search?q={}&tbm=isch", &args.query);
-
-    let params = args.params();
-    if params.len() > 0 {
-        url += "&tbs=ic:specific";
-        url += &params;
-    }
-
-    url
-}
-
-async fn get(url: String) -> Result<String, surf::Error> {
-    Ok(surf::get(url)
-        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4324.104 Safari/537.36")
-        .recv_string()
-        .await?)
-}
-
-/// shorthand for unwrap_or_continue
-macro_rules! uoc {
-    ($opt: expr) => {
-        match $opt {
-            Some(v) => v,
-            None => {
-                continue;
-            }
-        }
-    };
 }
 
 #[tokio::main]
