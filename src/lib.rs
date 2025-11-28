@@ -78,8 +78,14 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use futures::future;
+use serde_json::json;
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
+
+use scraper::{Html, Selector};
+
+use reqwest;
+use tokio;
 
 /// Used to construct the arguments for searching and downloading images.
 ///
@@ -798,11 +804,11 @@ async fn download_image(
 }
 
 pub(crate) fn build_url(args: &Arguments) -> String {
-    let mut url = "https://www.google.com/search?udm=2&q=".to_string() + &args.query;
+    let mut url = format!("https://www.google.com/search?q={}&tbm=isch", &args.query);
 
     let params = args.params();
     if params.len() > 0 {
-        url += &"&tbs=ic:specific".to_string();
+        url += "&tbs=ic:specific";
         url += &params;
     }
 
@@ -828,52 +834,128 @@ macro_rules! uoc {
     };
 }
 
-pub(crate) fn unpack(recv: String) -> Option<Vec<Image>> {
-    let start = recv.find("var m={")? + "var m=".len();
-    let mut body = &recv[start..];
+#[tokio::main]
+pub(crate) async fn unpack(recv: String) -> Option<Vec<Image>> {
+    
+    let api_key = "";
+    let custom_search_id = "";
+    let search_term = "cat";
 
-    let script_end = body.find("var a=m")?;
-    body = &body[..script_end];
+    let res = reqwest::get(
+        format!("https://www.googleapis.com/customsearch/v1?key={api_key}&cx={custom_search_id}&q={search_term}&searchType=image")
+        .to_string())
+        .await.unwrap()
+        .text()
+        .await.unwrap();
 
-    let end = body.rfind(";")?;
-    body = &body[..end];
+    let json_res: serde_json::Value = serde_json::from_str(&res).ok().unwrap();
 
-    let json: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let images: Vec<Image> = match json_res.get("items") {
+        Some(items) => items.as_array()
+            .unwrap()
+            .iter()
+            .map(|item| {
+                let link = item.get("link").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                Image {
+                    url: link,
+                    width: 22,
+                    height: 22,
+                    thumbnail: "hey".to_string(),
+                    source: "yes".to_string(),
+                }
+            })
+            .collect(),
+        None => Vec::new()
+    };
+    println!("{:?}", images[0]);
 
-    let image_objects = json
-        .as_object()?
-        .values()
-        .filter(|list| {
-            list.as_array()
-                .map(|list| {
-                    list.get(0).map(|value| value.is_u64()).unwrap_or(false)
-                        && list.get(1).map(|value| value.is_array()).unwrap_or(false)
-                })
-                .unwrap_or(false)
-        })
-        .map(|image| image.as_array().unwrap()[1].as_array().unwrap());
+    //if let Some(item) = json_res.get("items") {
+    //    println!("{:?}", item);
+    //}
+    
+    //let fragment = Html::parse_document(&recv);
+    //let img_selector = Selector::parse("img").unwrap();
+    //let src_selector = Selector::parse("a").unwrap();
 
-    let mut images: Vec<Image> = Vec::new();
-    for obj in image_objects {
-        let (url, width, height) = match obj[3].as_array() {
-            Some(i) => (
-                uoc!(i[0].as_str()).to_string(),
-                uoc!(i[1].as_i64()),
-                uoc!(i[2].as_i64()),
-            ),
-            None => continue,
-        };
 
-        let image = Image {
-            url,
-            width,
-            height,
-            thumbnail: uoc!(uoc!(obj[2].as_array())[0].as_str()).to_string(),
-            source: uoc!(uoc!(uoc!(obj[9].as_object())["2003"].as_array())[2].as_str()).to_string(),
-        };
+    //for element in fragment.select(&src_selector) {
+    //    let mut img_data = serde_json::json!({
+    //    });
+    //    let value = element.value();
+    //    //println!("{}", value.attr("href").unwrap()[value.attr("href").unwrap().to_string().find("&url=").unwrap()..].to_string());
+    //    match value.attr("href") {
+    //        Some(href_value) => {
+    //            match href_value.find("&url=") {
+    //                Some(url_index) => {
+    //                    //println!("{}", href_value[url_index+5..].to_string());
+    //                    let unfiltered_url = href_value[url_index+5..].to_string();
+    //                    println!("{}", unfiltered_url[..uoc!(unfiltered_url.find("&"))].to_string())
+    //                },
+    //                None => continue,
+    //            }
+    //        },
+    //        None => continue,
+    //    }
+    //    
+    //    
+    //    //let image = Image {
+    //    //    url: String::from(value.attr("href")),
+    //    //    width: 200,
+    //    //    height: 200,
+    //    //    thumbnail: String::from(value.attr("src")),
+    //    //    source: String::from(value),
+    //    //};
+    //}
 
-        images.push(image);
-    }
 
     Some(images)
+    //let start = recv.find("var m={")? + "var m=".len();
+    //let mut body = &recv[start..];
+
+    //println!("yes");
+    //let script_end = body.find("var a=m")?;
+    //body = &body[..script_end];
+
+    //let end = body.rfind(";")?;
+    //body = &body[..end];
+
+    //let json: serde_json::Value = serde_json::from_str(&body).ok()?;
+
+
+    //let image_objects = json
+        //.as_object()?
+        //.values()
+        //.filter(|list| {
+            //list.as_array()
+                //.map(|list| {
+                    //list.get(0).map(|value| value.is_u64()).unwrap_or(false)
+                        //&& list.get(1).map(|value| value.is_array()).unwrap_or(false)
+                //})
+                //.unwrap_or(false)
+        //})
+        //.map(|image| image.as_array().unwrap()[1].as_array().unwrap());
+
+    //let mut images: Vec<Image> = Vec::new();
+    //for obj in image_objects {
+        //let (url, width, height) = match obj[3].as_array() {
+            //Some(i) => (
+                //uoc!(i[0].as_str()).to_string(),
+                //uoc!(i[1].as_i64()),
+                //uoc!(i[2].as_i64()),
+            //),
+            //None => continue,
+        //};
+
+        //let image = Image {
+            //url,
+            //width,
+            //height,
+            //thumbnail: uoc!(uoc!(obj[2].as_array())[0].as_str()).to_string(),
+            //source: uoc!(uoc!(uoc!(obj[9].as_object())["2003"].as_array())[2].as_str()).to_string(),
+        //};
+
+        //images.push(image);
+    //}
+
+    //Some(images)
 }
