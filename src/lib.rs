@@ -106,6 +106,8 @@ use tokio;
 #[derive(Debug, Clone)]
 pub struct Arguments {
     query: String,
+    key: String,
+    search_id: String,
     limit: usize,
     thumbnails: bool,
     timeout: Option<Duration>,
@@ -144,9 +146,11 @@ impl Arguments {
         params_str
     }
 
-    pub fn new(query: &str, limit: usize) -> Arguments {
+    pub fn new(query: &str, key: &str, search_id: &str, limit: usize) -> Arguments {
         Arguments {
             query: query.to_owned(),
+            key: key.to_owned(),
+            search_id: search_id.to_owned(),
             limit,
             thumbnails: false,
             timeout: Some(Duration::from_secs(20)),
@@ -552,10 +556,7 @@ pub async fn search(args: Arguments) -> SearchResult<Vec<Image>> {
 /// * The GET request fails
 /// * The images are not able to be parsed
 async fn _search(args: Arguments) -> SearchResult<Vec<Image>> {
-    let url = build_url(&args);
-    let body = get(url).await?;
-
-    let imgs = match unpack(body) {
+    let imgs = match unpack(args.key, args.search_id, args.query) {
         Some(i) => i,
         None => return Err(Error::Parse),
     };
@@ -835,14 +836,14 @@ macro_rules! uoc {
 }
 
 #[tokio::main]
-pub(crate) async fn unpack(recv: String) -> Option<Vec<Image>> {
+pub(crate) async fn unpack(
+    key: String,
+    search_id: String,
+    query: String
+) -> Option<Vec<Image>> {
     
-    let api_key = "";
-    let custom_search_id = "";
-    let search_term = "cat";
-
     let res = reqwest::get(
-        format!("https://www.googleapis.com/customsearch/v1?key={api_key}&cx={custom_search_id}&q={search_term}&searchType=image")
+        format!("https://www.googleapis.com/customsearch/v1?key={key}&cx={search_id}&q={query}&searchType=image")
         .to_string())
         .await.unwrap()
         .text()
@@ -855,107 +856,38 @@ pub(crate) async fn unpack(recv: String) -> Option<Vec<Image>> {
             .unwrap()
             .iter()
             .map(|item| {
-                let link = item.get("link").and_then(|v| v.as_str()).unwrap_or_default().to_string();
+                let link = item.get("link")
+                    .and_then(|l| l.as_str())
+                    .unwrap_or_default()
+                    .to_string();
+                let width = item.get("image")
+                    .and_then(|v| {v.get("width")
+                    .and_then(|w| {w.as_i64()})})
+                    .unwrap_or_default();
+                let height = item.get("image")
+                    .and_then(|v| {v.get("height")
+                    .and_then(|h| {h.as_i64()})})
+                    .unwrap_or_default();
+                let thumbnail = item.get("image")
+                    .and_then(|v| {v.get("thumbnailLink")
+                    .and_then(|t| {t.as_str()})})
+                    .unwrap_or_default()
+                    .to_string();
+                let source = item.get("image")
+                    .and_then(|v| {v.get("contextLink")
+                    .and_then(|s| {s.as_str()})})
+                    .unwrap_or_default()
+                    .to_string();
                 Image {
                     url: link,
-                    width: 22,
-                    height: 22,
-                    thumbnail: "hey".to_string(),
-                    source: "yes".to_string(),
+                    width: width,
+                    height: height,
+                    thumbnail: thumbnail,
+                    source: source,
                 }
             })
             .collect(),
         None => Vec::new()
     };
-    println!("{:?}", images[0]);
-
-    //if let Some(item) = json_res.get("items") {
-    //    println!("{:?}", item);
-    //}
-    
-    //let fragment = Html::parse_document(&recv);
-    //let img_selector = Selector::parse("img").unwrap();
-    //let src_selector = Selector::parse("a").unwrap();
-
-
-    //for element in fragment.select(&src_selector) {
-    //    let mut img_data = serde_json::json!({
-    //    });
-    //    let value = element.value();
-    //    //println!("{}", value.attr("href").unwrap()[value.attr("href").unwrap().to_string().find("&url=").unwrap()..].to_string());
-    //    match value.attr("href") {
-    //        Some(href_value) => {
-    //            match href_value.find("&url=") {
-    //                Some(url_index) => {
-    //                    //println!("{}", href_value[url_index+5..].to_string());
-    //                    let unfiltered_url = href_value[url_index+5..].to_string();
-    //                    println!("{}", unfiltered_url[..uoc!(unfiltered_url.find("&"))].to_string())
-    //                },
-    //                None => continue,
-    //            }
-    //        },
-    //        None => continue,
-    //    }
-    //    
-    //    
-    //    //let image = Image {
-    //    //    url: String::from(value.attr("href")),
-    //    //    width: 200,
-    //    //    height: 200,
-    //    //    thumbnail: String::from(value.attr("src")),
-    //    //    source: String::from(value),
-    //    //};
-    //}
-
-
     Some(images)
-    //let start = recv.find("var m={")? + "var m=".len();
-    //let mut body = &recv[start..];
-
-    //println!("yes");
-    //let script_end = body.find("var a=m")?;
-    //body = &body[..script_end];
-
-    //let end = body.rfind(";")?;
-    //body = &body[..end];
-
-    //let json: serde_json::Value = serde_json::from_str(&body).ok()?;
-
-
-    //let image_objects = json
-        //.as_object()?
-        //.values()
-        //.filter(|list| {
-            //list.as_array()
-                //.map(|list| {
-                    //list.get(0).map(|value| value.is_u64()).unwrap_or(false)
-                        //&& list.get(1).map(|value| value.is_array()).unwrap_or(false)
-                //})
-                //.unwrap_or(false)
-        //})
-        //.map(|image| image.as_array().unwrap()[1].as_array().unwrap());
-
-    //let mut images: Vec<Image> = Vec::new();
-    //for obj in image_objects {
-        //let (url, width, height) = match obj[3].as_array() {
-            //Some(i) => (
-                //uoc!(i[0].as_str()).to_string(),
-                //uoc!(i[1].as_i64()),
-                //uoc!(i[2].as_i64()),
-            //),
-            //None => continue,
-        //};
-
-        //let image = Image {
-            //url,
-            //width,
-            //height,
-            //thumbnail: uoc!(uoc!(obj[2].as_array())[0].as_str()).to_string(),
-            //source: uoc!(uoc!(uoc!(obj[9].as_object())["2003"].as_array())[2].as_str()).to_string(),
-        //};
-
-        //images.push(image);
-    //}
-
-    //Some(images)
 }
