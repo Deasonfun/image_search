@@ -115,13 +115,12 @@ pub struct Arguments {
     license: License,
     image_type: ImageType,
     time: Time,
-    ratio: Ratio,
     format: Format,
 }
 
 impl Arguments {
     fn params(&self) -> String {
-        let split = &String::from("%2C");
+        let split = &String::from("&");
         let mut params_str = String::new();
 
         let color = self.color.param();
@@ -129,9 +128,8 @@ impl Arguments {
         let license = self.license.param();
         let image_type = self.image_type.param();
         let time = self.time.param();
-        let ratio = self.ratio.param();
         let format = self.format.param();
-        let params = [color, color_type, license, image_type, time, ratio, format];
+        let params = [color, color_type, license, image_type, time, format];
 
         for param in params.iter() {
             if param.len() > 1 {
@@ -158,7 +156,6 @@ impl Arguments {
             license: License::None,
             image_type: ImageType::None,
             time: Time::None,
-            ratio: Ratio::None,
             format: Format::None,
         }
     }
@@ -214,12 +211,6 @@ impl Arguments {
         self
     }
 
-    /// Sets the rough aspect ratio the images are filtered by.
-    pub fn ratio(mut self, ratio: Ratio) -> Self {
-        self.ratio = ratio;
-        self
-    }
-
     /// Sets the image format that Google will filter by.
     pub fn format(mut self, format: Format) -> Self {
         self.format = format;
@@ -248,18 +239,18 @@ impl Color {
     fn param(&self) -> String {
         String::from(match self {
             Self::None => "",
-            Self::Red => "isc:red",
-            Self::Orange => "isc:orange",
-            Self::Yellow => "isc:yellow",
-            Self::Green => "isc:green",
-            Self::Teal => "isc:teal",
-            Self::Blue => "isc:blue",
-            Self::Purple => "isc:purple",
-            Self::Pink => "isc:pink",
-            Self::White => "isc:white",
-            Self::Gray => "isc:gray",
-            Self::Black => "isc:black",
-            Self::Brown => "isc:brown",
+            Self::Red => "imgDominantColor=red",
+            Self::Orange => "imgDominantColor=orange",
+            Self::Yellow => "imgDominantColor=yellow",
+            Self::Green => "imgDominantColor=green",
+            Self::Teal => "imgDominantColor=teal",
+            Self::Blue => "imgDominantColor=blue",
+            Self::Purple => "imgDominantColor=purple",
+            Self::Pink => "imgDominantColor=pink",
+            Self::White => "imgDominantColor=white",
+            Self::Gray => "imgDominantColor=gray",
+            Self::Black => "imgDominantColor=black",
+            Self::Brown => "imgDominantColor=brown",
         })
     }
 }
@@ -276,9 +267,9 @@ impl ColorType {
     fn param(&self) -> String {
         String::from(match self {
             Self::None => "",
-            Self::Color => "ic:full",
-            Self::Grayscale => "ic:gray",
-            Self::Transparent => "ic:trans",
+            Self::Color => "imgColorType=full",
+            Self::Grayscale => "imgColorType=gray",
+            Self::Transparent => "imgColorType=trans",
         })
     }
 }
@@ -287,15 +278,13 @@ impl ColorType {
 pub enum License {
     None,
     CreativeCommons,
-    Other,
 }
 
 impl License {
     fn param(&self) -> String {
         String::from(match self {
             Self::None => "",
-            Self::CreativeCommons => "il:cl",
-            Self::Other => "il:ol",
+            Self::CreativeCommons => "rigths=cc_puiblicdomain",
         })
     }
 }
@@ -314,11 +303,11 @@ impl ImageType {
     fn param(&self) -> String {
         String::from(match self {
             Self::None => "",
-            Self::Face => "itp:face",
-            Self::Photo => "itp:photo",
-            Self::Clipart => "itp:clipart",
-            Self::Lineart => "itp:lineart",
-            Self::Animated => "itp:animated",
+            Self::Face => "imgType=face",
+            Self::Photo => "imgType=photo",
+            Self::Clipart => "imgType=clipart",
+            Self::Lineart => "imgType=lineart",
+            Self::Animated => "imgType=animated",
         })
     }
 }
@@ -336,31 +325,10 @@ impl Time {
     fn param(&self) -> String {
         String::from(match self {
             Self::None => "",
-            Self::Day => "qdr:d",
-            Self::Week => "qdr:w",
-            Self::Month => "qdr:m",
-            Self::Year => "qdr:y",
-        })
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum Ratio {
-    None,
-    Tall,
-    Square,
-    Wide,
-    Panoramic,
-}
-
-impl Ratio {
-    fn param(&self) -> String {
-        String::from(match self {
-            Self::None => "",
-            Self::Tall => "iar:t",
-            Self::Square => "iar:s",
-            Self::Wide => "iar:w",
-            Self::Panoramic => "iar:xw",
+            Self::Day => "dateRestrict=d",
+            Self::Week => "dateRestrict=w",
+            Self::Month => "dateRestrict=m",
+            Self::Year => "dateRestrict=y",
         })
     }
 }
@@ -382,14 +350,14 @@ impl Format {
     fn param(&self) -> String {
         String::from(match self {
             Self::None => "",
-            Self::Jpg => "ift:jpg",
-            Self::Gif => "ift:gif",
-            Self::Png => "ift:png",
-            Self::Bmp => "ift:bmp",
-            Self::Svg => "ift:svg",
-            Self::Webp => "ift:webp",
-            Self::Ico => "ift:ico",
-            Self::Raw => "ift:raw",
+            Self::Jpg => "fileType=jpg",
+            Self::Gif => "fileType=gif",
+            Self::Png => "fileType=png",
+            Self::Bmp => "fileType=bmp",
+            Self::Svg => "fileType=svg",
+            Self::Webp => "fileType=webp",
+            Self::Ico => "fileType=ico",
+            Self::Raw => "fileType=raw",
         })
     }
 }
@@ -515,7 +483,7 @@ macro_rules! debug_display {
         })*
     }
 }
-debug_display!(for Image, Arguments, Color, ColorType, License, ImageType, Time, Ratio, Format);
+debug_display!(for Image, Arguments, Color, ColorType, License, ImageType, Time, Format);
 
 /// Search for images based on the provided arguments and return images up to the provided limit.
 ///
@@ -553,7 +521,7 @@ pub async fn search(args: Arguments) -> SearchResult<Vec<Image>> {
 /// * The GET request fails
 /// * The images are not able to be parsed
 async fn _search(args: Arguments) -> SearchResult<Vec<Image>> {
-    let imgs = match unpack(args.key, args.search_id, args.query) {
+    let imgs = match unpack(args.clone()) {
         Some(i) => i,
         None => return Err(Error::Parse),
     };
@@ -803,13 +771,15 @@ async fn download_image(
 
 #[tokio::main]
 pub(crate) async fn unpack(
-    key: String,
-    search_id: String,
-    query: String
+args: Arguments
 ) -> Option<Vec<Image>> {
-    
+
+    println!("{}", args.params());
+
     let res = reqwest::get(
-        format!("https://www.googleapis.com/customsearch/v1?key={key}&cx={search_id}&q={query}&searchType=image")
+    format!(
+            "https://www.googleapis.com/customsearch/v1?key={}&cx={}&q={}&searchType=image{}", 
+            args.key, args.search_id, args.query, args.params())
         .to_string())
         .await.unwrap()
         .text()
